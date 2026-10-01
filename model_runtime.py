@@ -77,6 +77,24 @@ def build_input_frame(
     )
 
 
+def calculate_derived_features(values: Mapping[str, Any]) -> dict[str, float]:
+    """Calculate the rate and directional loads used by the fitted model."""
+    duration = float(values["dur"])
+    if duration <= 0:
+        return {"rate": 0.0, "sload": 0.0, "dload": 0.0}
+
+    source_packets = float(values["spkts"])
+    destination_packets = float(values["dpkts"])
+    source_bytes = float(values["sbytes"])
+    destination_bytes = float(values["dbytes"])
+
+    return {
+        "rate": (source_packets + destination_packets) / duration,
+        "sload": (source_bytes * 8.0) / duration,
+        "dload": (destination_bytes * 8.0) / duration,
+    }
+
+
 def predict_flow(
     bundle: Mapping[str, Any], values: Mapping[str, Any]
 ) -> tuple[int, float | None]:

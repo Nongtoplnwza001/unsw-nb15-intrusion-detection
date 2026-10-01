@@ -7,7 +7,12 @@ from pathlib import Path
 
 import streamlit as st
 
-from model_runtime import ModelBundleError, load_model_bundle, predict_flow
+from model_runtime import (
+    ModelBundleError,
+    calculate_derived_features,
+    load_model_bundle,
+    predict_flow,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -40,6 +45,8 @@ FEATURE_HELP = {
     "sload": "โหลดข้อมูลจากต้นทาง",
     "dload": "โหลดข้อมูลจากปลายทาง",
 }
+
+DERIVED_FEATURES = {"rate", "sload", "dload"}
 
 
 st.set_page_config(
@@ -103,6 +110,17 @@ st.markdown(
       .stButton button:hover,.stFormSubmitButton button:hover { border-color:#1d46ad!important; background:#1d46ad!important; }
       input:focus-visible,button:focus-visible,[role="combobox"]:focus-visible { outline:3px solid rgba(36,87,214,.28)!important; outline-offset:2px!important; }
 
+      .derived-shell { margin:.35rem 0 1rem; border:1px solid var(--line); background:#f7f9fb; }
+      .derived-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.8rem 1rem; border-bottom:1px solid var(--line); }
+      .derived-title { color:var(--ink); font-size:.82rem; font-weight:800; }
+      .derived-note { color:var(--muted); font-size:.72rem; }
+      .derived-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+      .derived-item { min-width:0; padding:.85rem 1rem; border-right:1px solid var(--line); }
+      .derived-item:last-child { border-right:0; }
+      .derived-label { color:var(--muted); font-size:.72rem; font-weight:700; }
+      .derived-value { margin-top:.25rem; overflow-wrap:anywhere; color:var(--ink); font-family:Bahnschrift,"Segoe UI",sans-serif; font-size:1rem; font-weight:700; }
+      .derived-unit { margin-top:.12rem; color:var(--muted); font-size:.66rem; }
+
       .result-shell { min-height:100%; padding:1.6rem; border:1px solid var(--line); background:white; }
       .result-index { color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
       .result-empty { padding:2.2rem 0; color:var(--muted); font-size:.95rem; line-height:1.65; }
@@ -123,6 +141,7 @@ st.markdown(
 
       @media(max-width:820px){
         .block-container{padding:.75rem 1rem 2.5rem}.hero{grid-template-columns:1fr;min-height:auto;padding:2rem 1.4rem}.hero-side{border-left:0;border-top:1px solid #ffffff2e;padding:1.2rem 0 0}.metric-grid,.workflow{grid-template-columns:1fr 1fr}.metric-card:nth-child(2),.workflow-step:nth-child(2){border-right:0}.metric-card:nth-child(-n+2),.workflow-step:nth-child(-n+2){border-bottom:1px solid var(--line)}.section-head{align-items:start;flex-direction:column}.section-note{text-align:left}
+        .derived-head{align-items:flex-start;flex-direction:column;gap:.2rem}.derived-grid{grid-template-columns:1fr}.derived-item{border-right:0;border-bottom:1px solid var(--line)}.derived-item:last-child{border-bottom:0}
       }
       @media(max-width:520px){
         .topbar{align-items:flex-start}.metric-grid,.workflow{grid-template-columns:1fr}.metric-card,.workflow-step{border-right:0;border-bottom:1px solid var(--line)}.metric-card:last-child,.workflow-step:last-child{border-bottom:0}.hero h1{font-size:2.55rem}
@@ -166,7 +185,7 @@ st.markdown(
         <div class="hero-side-label">Active model</div>
         <div class="hero-model">{model_name}</div>
         <div class="hero-side-label">Inference route</div>
-        <div class="hero-route"><span>11 flow features</span><span>Fitted preprocessing pipeline</span><span>Binary prediction</span></div>
+        <div class="hero-route"><span>8 inputs + 3 calculated features</span><span>Fitted preprocessing pipeline</span><span>Binary prediction</span></div>
       </div>
     </section>
     """,
@@ -215,10 +234,11 @@ form_column, result_column = st.columns([1.28, .72], gap="large")
 
 with form_column:
     values: dict[str, object] = {}
+    input_schema = [feature for feature in schema if feature["name"] not in DERIVED_FEATURES]
     with st.container(border=True):
-        for row_start in range(0, len(schema), 2):
+        for row_start in range(0, len(input_schema), 2):
             row_columns = st.columns(2)
-            for column_index, feature in enumerate(schema[row_start : row_start + 2]):
+            for column_index, feature in enumerate(input_schema[row_start : row_start + 2]):
                 name = feature["name"]
                 label = FEATURE_LABELS.get(name, name)
                 help_text = FEATURE_HELP.get(name)
@@ -235,6 +255,36 @@ with form_column:
                             label, min_value=0.0, value=default, step=step,
                             format="%.6f", help=help_text,
                         )
+
+        values.update(calculate_derived_features(values))
+        st.markdown(
+            f"""
+            <div class="derived-shell">
+              <div class="derived-head">
+                <span class="derived-title">ค่าที่ระบบคำนวณอัตโนมัติ</span>
+                <span class="derived-note">คำนวณใหม่ทันทีเมื่อข้อมูลด้านบนเปลี่ยน</span>
+              </div>
+              <div class="derived-grid">
+                <div class="derived-item">
+                  <div class="derived-label">Packet rate</div>
+                  <div class="derived-value">{values['rate']:,.6f}</div>
+                  <div class="derived-unit">packets / second</div>
+                </div>
+                <div class="derived-item">
+                  <div class="derived-label">Source load</div>
+                  <div class="derived-value">{values['sload']:,.6f}</div>
+                  <div class="derived-unit">bits / second</div>
+                </div>
+                <div class="derived-item">
+                  <div class="derived-label">Destination load</div>
+                  <div class="derived-value">{values['dload']:,.6f}</div>
+                  <div class="derived-unit">bits / second</div>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         submitted = st.button(
             "วิเคราะห์ Network Flow",
@@ -308,7 +358,7 @@ st.markdown(
       <p class="section-note">หน้าเว็บเรียกใช้โมเดลที่ฝึกแล้ว ไม่มีการฝึกโมเดลใหม่ระหว่างการทำนาย</p>
     </div>
     <div class="workflow">
-      <div class="workflow-step"><div class="workflow-number">01</div><h3>Flow input</h3><p>รับค่า 11 features ที่อธิบายบริบท ปริมาณ และอัตราการส่งข้อมูล</p></div>
+      <div class="workflow-step"><div class="workflow-number">01</div><h3>Flow input</h3><p>รับข้อมูลพื้นฐาน 8 ค่า แล้วคำนวณ rate และ load อีก 3 ค่าโดยอัตโนมัติ</p></div>
       <div class="workflow-step"><div class="workflow-number">02</div><h3>Preprocessing</h3><p>เติมค่าที่ขาด ปรับสเกลตัวเลข และเข้ารหัสข้อมูลหมวดหมู่ด้วย pipeline เดิม</p></div>
       <div class="workflow-step"><div class="workflow-number">03</div><h3>Classification</h3><p>ส่งข้อมูลเข้าสู่โมเดลที่ผ่านการเปรียบเทียบบนชุดทดสอบแล้ว</p></div>
       <div class="workflow-step"><div class="workflow-number">04</div><h3>Interpretation</h3><p>แสดง Normal หรือ Attack พร้อมความน่าจะเป็นและคำอธิบายข้อจำกัด</p></div>

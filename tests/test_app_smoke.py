@@ -12,6 +12,7 @@ class StreamlitAppSmokeTest(unittest.TestCase):
         app = AppTest.from_file(str(PROJECT_DIR / "app.py"))
         app.run(timeout=30)
         self.assertEqual(list(app.exception), [])
+        self.assertEqual(len(app.number_input), 5)
 
         app.button[0].click().run(timeout=30)
         self.assertEqual(list(app.exception), [])

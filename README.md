@@ -9,7 +9,7 @@ scikit-learn ที่ฝึกเสร็จแล้วจาก Notebook แ
 
 - Hero อธิบายเป้าหมายโครงการและโมเดลที่กำลังใช้งาน
 - Model evidence แสดง Accuracy, Precision, Recall และ F1-score
-- Interactive demo รับข้อมูล network flow จำนวน 11 features
+- Interactive demo รับข้อมูลพื้นฐาน 8 ค่า และคำนวณอีก 3 features อัตโนมัติ
 - Prediction output แสดง Normal/Attack และ Attack probability
 - How it works อธิบายเส้นทางตั้งแต่ input ถึงการตีความผล
 
@@ -20,6 +20,7 @@ Mini Project
 
 - App ไม่มีคำสั่ง `fit()` และไม่ฝึกโมเดลซ้ำ
 - ลำดับและชนิดของ input มาจาก `feature_schema` ภายในโมเดล
+- คำนวณ `rate`, `sload` และ `dload` จาก duration, packet และ byte โดยอัตโนมัติ
 - แสดง Accuracy, Precision, Recall และ F1 จากผลการทดลองจริง
 - รองรับ categorical feature ที่ไม่รู้จักผ่าน preprocessing pipeline เดิม
 - อ่านชื่อโมเดล Run mode และ Metrics จาก artifact ที่ฝึกเสร็จแล้ว
